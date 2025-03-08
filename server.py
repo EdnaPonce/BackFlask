@@ -6,6 +6,7 @@ from google.oauth2.service_account import Credentials
 import requests
 from openai import OpenAI
 import os
+import json
 
 app = Flask(__name__)
 
