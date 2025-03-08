@@ -7,6 +7,7 @@ import requests
 from openai import OpenAI
 import os
 import json
+from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas las rutas
