@@ -27,7 +27,7 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY no está configurado en variables de entorno")
 
-client = OpenAI(api_key=openai_api_key
+client = OpenAI(api_key=openai_api_key)
 
 # Configuración para Firebase Cloud Messaging (FCM)
 SERVICE_ACCOUNT_FILE = json.loads(firebase_credentials_json)
