@@ -5,6 +5,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.service_account import Credentials
 import requests
 from openai import OpenAI
+import os
 
 app = Flask(__name__)
 
