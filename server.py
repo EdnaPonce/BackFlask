@@ -9,7 +9,7 @@ import os
 import json
 
 app = Flask(__name__)
-
+CORS(app)  # Habilita CORS para todas las rutas
 try:
     firebase_credentials_json = os.getenv("FIREBASE_CREDENTIALS")  # Leer JSON desde variable de entorno
     if not firebase_credentials_json:
