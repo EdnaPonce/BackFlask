@@ -72,7 +72,7 @@ def send_notification():
                 "android": {
                     "priority": "HIGH",
                     "notification": {
-                        "icon": "soporte_tecnico",
+                        "icon": "Procfile",
                     }
                 }
             }
