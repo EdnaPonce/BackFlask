@@ -105,12 +105,20 @@ def identify_service():
             return jsonify({"error": "No se proporcionó un problema"}), 400
 
         problem = data['problem']
+        
+        allowed_services = {
+            "Albañil", "Carpintero", "Herrero", "Electricista", "Plomero", "Pintor", 
+            "Soldador", "Techador", "Patelero", "Yesero", "Instalador de pisos y azulejos", 
+            "Instalador de vidrios", "Jardinero", "Vigilante", "Velador", 
+            "Personal de limpieza", "Niñera", "Cuidadores de adultos mayores o enfermos",
+            "Costurero", "Zapatero", "Reparador de electrodomésticos", "Paseador de perros"
+        }
 
         chat_completion = client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
-                    "content": "Eres un asistente que identifica servicios necesarios según las descripciones de problemas. Responde solo con el tipo de servicio en una palabra, como 'electricista', 'fontanero', 'costurero', etc."
+                    "content": "Eres un asistente que identifica servicios necesarios según las descripciones de problemas. Responde solo con el tipo de servicio en una palabra o frase corta, seleccionando únicamente de esta lista: " + ", ".join(allowed_services) + ". Si el problema no corresponde a ninguno de estos servicios, responde 'no tenemos trabajadores para esa actividad'."
                 },
                 {
                     "role": "user",
@@ -121,6 +129,11 @@ def identify_service():
         )
 
         service_needed = chat_completion.choices[0].message.content.strip()
+        
+        # Verify the response is in our allowed list
+        if service_needed not in allowed_services:
+            service_needed = "no tenemos trabajadores para esa actividad"
+            
         return jsonify({"service": service_needed}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
