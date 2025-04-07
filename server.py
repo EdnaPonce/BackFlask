@@ -9,7 +9,6 @@ import os
 import json
 from flask_cors import CORS
 import tempfile
-import face_recognition
 
 
 
@@ -111,36 +110,48 @@ def identify_service():
         
         allowed_services = {
             "Albañil", "Carpintero", "Herrero", "Electricista", "Plomero", "Pintor", 
-            "Soldador", "Techador", "Pastelero", "Yesero", "Instalador de pisos y azulejos", "Cocinero", "Jardinero",
+            "Soldador", "Techador", "Patelero", "Yesero", "Instalador de pisos y azulejos", 
             "Instalador de vidrios", "Jardinero", "Vigilante", "Velador", 
             "Personal de limpieza", "Niñera", "Cuidadores de adultos mayores o enfermos",
-            "Costurero", "Zapatero", "Reparador de electrodomésticos", "Paseador de perros"
+            "Costurero", "Zapatero", "Reparador de electrodomésticos", "Paseador de perros",
+            "Pastelero", "Manicurista"  # Agregado anteriormente
         }
+
+        # Prompt mejorado con ejemplos y sinónimos
+        system_prompt = """
+        Eres un asistente que identifica servicios necesarios según problemas domésticos. 
+        Debes responder **exclusivamente** con una de estas opciones (sin cambios): 
+        Albañil, Carpintero, Herrero, Electricista, Plomero, Pintor, Soldador, Techador, 
+        Patelero, Yesero, Instalador de pisos y azulejos, Instalador de vidrios, Jardinero, 
+        Vigilante, Velador, Personal de limpieza, Niñera, Cuidadores de adultos mayores o enfermos,
+        Costurero, Zapatero, Reparador de electrodomésticos, Paseador de perros, Pastelero, Manicurista.
+
+        Ejemplos:
+        - "Se rompió una silla de madera" → Carpintero
+        - "El fregadero está tapado" → Plomero
+        - "Necesito instalar un piso" → Instalador de pisos y azulejos
+        - "Se fue la luz en mi casa" → Electricista
+        Si el problema no coincide con ningún servicio de la lista, responde: "no tenemos trabajadores disponibles".
+        """
 
         chat_completion = client.chat.completions.create(
             messages=[
-                {
-                    "role": "system",
-                    "content": "Eres un asistente que identifica servicios necesarios según las descripciones de problemas. Responde solo con el tipo de servicio en una palabra o frase corta, seleccionando únicamente de esta lista: " + ", ".join(allowed_services) + ". Si el problema no corresponde a ninguno de estos servicios, responde 'no tenemos trabajadores para esa actividad'."
-                },
-                {
-                    "role": "user",
-                    "content": problem
-                }
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": problem}
             ],
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo",  # o "gpt-4" si tienes acceso
+            temperature=0.2  # Reduce la creatividad para respuestas más precisas
         )
 
         service_needed = chat_completion.choices[0].message.content.strip()
         
-        # Verify the response is in our allowed list
+        # Validación extra (por si el modelo ignora el prompt)
         if service_needed not in allowed_services:
-            service_needed = "no tenemos trabajadores para esa actividad"
+            service_needed = "no tenemos trabajadores disponibles"
             
         return jsonify({"service": service_needed}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 
 
