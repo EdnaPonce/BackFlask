@@ -10,7 +10,6 @@ import json
 from flask_cors import CORS
 import tempfile
 import face_recognition
-import face_recognition
 
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas las rutas
