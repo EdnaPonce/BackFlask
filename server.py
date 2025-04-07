@@ -142,60 +142,6 @@ def identify_service():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/add_reference_face', methods=['POST'])
-def add_reference_face():
-    if 'image' not in request.files:
-        return jsonify({"error": "No image file provided"}), 400
-
-    image_file = request.files['image']
-    image_path = "./temp_reference_image.jpg"
-
-    try:
-        # Guarda la imagen
-        image_file.save(image_path)
-        print(f"Imagen guardada temporalmente en: {image_path}")
-    except Exception as e:
-        return jsonify({"error": f"Error al guardar la imagen: {e}"}), 500
-
-    if not os.path.exists(image_path):
-        return jsonify({"error": "La imagen no se guardó correctamente."}), 500
-
-    try:
-        # Procesar la imagen para obtener codificación facial
-        image = face_recognition.load_image_file(image_path)
-        face_encodings = face_recognition.face_encodings(image)
-
-        if not face_encodings:
-            os.remove(image_path)
-            return jsonify({"error": "No face found"}), 400
-
-        # Obtener la primera codificación
-        face_encoding = face_encodings[0].tolist()
-
-        # Obtener el UID del formulario
-        uid = request.form.get("uid")
-        if not uid:
-            return jsonify({"error": "UID no proporcionado"}), 400
-
-        # Subir la codificación a Firebase usando el UID como identificador
-        doc_ref = db.collection('autenticacion').document(uid)
-        doc_ref.set({
-            "face_encoding": face_encoding,
-            "uid": uid,
-            "timestamp": firestore.SERVER_TIMESTAMP
-        })
-
-        # Eliminar imagen temporal
-        os.remove(image_path)
-
-        return jsonify({
-            "message": "Face added as reference",
-            "uid": uid
-        }), 200
-        
-    except Exception as e:
-        print(f"Error al procesar la imagen: {e}")
-        return jsonify({"error": f"Error al procesar la imagen: {e}"}), 500
 
 
 if __name__ == '__main__':
