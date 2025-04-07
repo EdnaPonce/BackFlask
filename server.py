@@ -11,6 +11,8 @@ from flask_cors import CORS
 import tempfile
 import face_recognition
 
+
+
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas las rutas
 
@@ -138,6 +140,7 @@ def identify_service():
         return jsonify({"service": service_needed}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/add_reference_face', methods=['POST'])
 def add_reference_face():
