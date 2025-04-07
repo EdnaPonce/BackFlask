@@ -1,12 +1,13 @@
 # --- Firebase ---
 firebase-admin==6.6.0
-google-cloud-firestore>=2.19.0  # ¡Versión compatible con firebase-admin 6.6.0!
+google-cloud-firestore>=2.19.0
 google-auth>=2.29.0
 
 # --- Face Recognition ---
-
-dlib==19.24.2 --find-links https://pypi.python.org/simple/
+dlib==19.24.2; sys_platform != 'linux' or python_version < '3.11'
+dlib==19.24.0; sys_platform == 'linux' and python_version >= '3.11'
 face-recognition==1.3.0
+numpy==1.24.0  # Explicit version for compatibility
 
 # --- Flask ---
 Flask==3.0.2
