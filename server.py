@@ -121,8 +121,7 @@ def identify_service():
         system_prompt = """
         Eres un asistente que identifica servicios necesarios según problemas domésticos. 
         Debes responder **exclusivamente** con una de estas opciones (sin cambios): 
-        Albañil, Carpintero, Herrero, Electricista, Plomero, Pintor, Soldador, Techador, 
-        Patelero, Yesero, Instalador de pisos y azulejos, Instalador de vidrios, Jardinero, 
+        Albañil, Carpintero, Herrero, Electricista, Plomero, Pintor, Soldador, Techador, Yesero, Instalador de pisos y azulejos, Instalador de vidrios, Jardinero, 
         Vigilante, Velador, Personal de limpieza, Niñera, Cuidadores de adultos mayores o enfermos,
         Costurero, Zapatero, Reparador de electrodomésticos, Paseador de perros, Pastelero, Manicurista.
 
