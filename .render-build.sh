@@ -1,15 +1,9 @@
 #!/usr/bin/env bash
 set -o errexit
 
-# Instalar dependencias del sistema necesarias para face-recognition/dlib/opencv
-apt-get update && apt-get install -y \
-    cmake \
-    libopenblas-dev \
-    liblapack-dev \
-    libjpeg-dev \
-    libpng-dev \
-    libtiff-dev \
-    libavcodec-dev
-
-# Opcional: Configurar mirror de PyPI para descargas más rápidas
+# Configura mirror de PyPI para China (opcional, pero más rápido)
 pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# Instala solo dependencias del sistema CRÍTICAS (evita apt-get si no es necesario)
+# Render no permite modificar el sistema con apt-get en entornos efímeros
+echo "Saltando instalación de paquetes del sistema (no permitido en Render)"
