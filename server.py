@@ -9,11 +9,12 @@ import os
 import json
 from flask_cors import CORS
 import tempfile
-
-
+import boto3
 
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas las rutas
+
+# ====================== FIREBASE ======================
 
 try:
     firebase_credentials_json = os.getenv("FIREBASE_CREDENTIALS")
@@ -22,13 +23,11 @@ try:
     
     SERVICE_ACCOUNT_DICT = json.loads(firebase_credentials_json)
 
-    # Escribe ese dict como archivo temporal
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="w")
     json.dump(SERVICE_ACCOUNT_DICT, temp_file)
     temp_file.close()
     SERVICE_ACCOUNT_PATH = temp_file.name
 
-    # Inicializar Firebase Admin SDK
     cred = credentials.Certificate(SERVICE_ACCOUNT_DICT)
     firebase_admin.initialize_app(cred)
     db = firestore.client()
@@ -38,6 +37,7 @@ except Exception as e:
     print(f"Error al inicializar Firebase: {e}")
     db = None  # Evitar que la app falle si Firebase no se inicializa
 
+# ====================== OPENAI ======================
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
@@ -45,7 +45,22 @@ if not openai_api_key:
 
 client = OpenAI(api_key=openai_api_key)
 
-# Configuración para Firebase Cloud Messaging (FCM)
+# ====================== AWS ======================
+
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
+
+# Cliente boto3 por si luego necesitas Textract, Rekognition, etc.
+rekognition_client = boto3.client(
+    'rekognition',
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_REGION
+)
+
+# ====================== FCM ======================
+
 SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"]
 
 def get_access_token():
@@ -99,6 +114,8 @@ def send_notification():
         print("Error en /send-notification:", str(e))
         return jsonify({"error": str(e)}), 500
 
+# ====================== IDENTIFICAR SERVICIO ======================
+
 @app.route('/identify-service', methods=['POST'])
 def identify_service():
     try:
@@ -114,10 +131,9 @@ def identify_service():
             "Instalador de vidrios", "Jardinero", "Vigilante", "Velador", 
             "Personal de limpieza", "Niñera", "Cuidadores de adultos mayores o enfermos",
             "Costurero", "Zapatero", "Reparador de electrodomésticos", "Paseador de perros",
-            "Pastelero", "Manicurista"  # Agregado anteriormente
+            "Pastelero", "Manicurista"
         }
 
-        # Prompt mejorado con ejemplos y sinónimos
         system_prompt = """
         Eres un asistente que identifica servicios necesarios según problemas domésticos. 
         Debes responder **exclusivamente** con una de estas opciones (sin cambios): 
@@ -138,13 +154,12 @@ def identify_service():
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": problem}
             ],
-            model="gpt-3.5-turbo",  # o "gpt-4" si tienes acceso
-            temperature=0.2  # Reduce la creatividad para respuestas más precisas
+            model="gpt-3.5-turbo",
+            temperature=0.2
         )
 
         service_needed = chat_completion.choices[0].message.content.strip()
         
-        # Validación extra (por si el modelo ignora el prompt)
         if service_needed not in allowed_services:
             service_needed = "no tenemos trabajadores disponibles"
             
@@ -152,7 +167,7 @@ def identify_service():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
+# ====================== START APP ======================
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
