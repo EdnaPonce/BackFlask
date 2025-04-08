@@ -58,7 +58,12 @@ rekognition_client = boto3.client(
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
     region_name=AWS_REGION
 )
+# Directorio donde se almacenarán las imágenes de referencia (localmente)
+REFERENCE_FOLDER = './reference_faces'
+os.makedirs(REFERENCE_FOLDER, exist_ok=True)
 
+# ID de la colección de rostros
+COLLECTION_ID = "face_auth_collection"
 # ====================== FCM ======================
 
 SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"]
@@ -168,6 +173,145 @@ def identify_service():
         return jsonify({"error": str(e)}), 500
 
 # ====================== START APP ======================
+def ensure_collection_exists():
+    try:
+        collections = rekognition_client.list_collections()
+        app.logger.info(f"Colecciones existentes: {collections}")
+        
+        if COLLECTION_ID not in collections.get('CollectionIds', []):
+            rekognition_client.create_collection(CollectionId=COLLECTION_ID)
+            app.logger.info(f"Colección {COLLECTION_ID} creada con éxito")
+        else:
+            app.logger.info(f"La colección {COLLECTION_ID} ya existe")
+    except Exception as e:
+        app.logger.error(f"Error al verificar/crear colección: {e}")
 
+@app.route('/add_reference_face', methods=['POST'])
+def add_reference_face():
+    app.logger.info("Request received for add_reference_face")
+    app.logger.info(f"Form data: {request.form}")
+    app.logger.info(f"Files: {request.files}")
+    
+    if 'image' not in request.files:
+        return jsonify({"error": "No se proporcionó una imagen"}), 400
+    if 'uid' not in request.form:
+        return jsonify({"error": "UID no proporcionado"}), 400
+
+    uid = request.form['uid']
+    if not uid:
+        return jsonify({"error": "El UID no puede estar vacío"}), 400
+
+    image_file = request.files['image']
+    reference_image_path = os.path.join(REFERENCE_FOLDER, f"{uid}.jpg")
+
+    try:
+        image_file.save(reference_image_path)
+        app.logger.info(f"Imagen de referencia guardada en: {reference_image_path}")
+        
+        with open(reference_image_path, 'rb') as image:
+            response = rekognition_client.index_faces(
+                CollectionId=COLLECTION_ID,
+                Image={'Bytes': image.read()},
+                ExternalImageId=uid,
+                DetectionAttributes=['ALL']
+            )
+            app.logger.info(f"Cara indexada en Rekognition: {response}")
+    except Exception as e:
+        app.logger.error(f"Error al guardar/indexar la imagen: {str(e)}")
+        return jsonify({"error": f"Error al procesar la imagen: {str(e)}"}), 500
+
+    return jsonify({"message": "Imagen de referencia guardada exitosamente", "uid": uid}), 200
+
+@app.route('/compare_face', methods=['POST'])
+def compare_face():
+    app.logger.info("Request received for compare_face")
+    app.logger.info(f"Form data: {request.form}")
+    app.logger.info(f"Files: {request.files}")
+    
+    if 'image' not in request.files:
+        return jsonify({"error": "No se proporcionó una imagen"}), 400
+    if 'uid' not in request.form:
+        return jsonify({"error": "UID no proporcionado"}), 400
+
+    uid = request.form['uid']
+    if not uid:
+        return jsonify({"error": "El UID no puede estar vacío"}), 400
+
+    image_file = request.files['image']
+
+    try:
+        image_bytes = image_file.read()
+    except Exception as e:
+        app.logger.error(f"Error al leer la imagen: {str(e)}")
+        return jsonify({"error": f"Error al leer la imagen: {str(e)}"}), 500
+
+    reference_image_path = os.path.join(REFERENCE_FOLDER, f"{uid}.jpg")
+    app.logger.info(f"Looking for reference image at: {reference_image_path}")
+    app.logger.info(f"File exists: {os.path.exists(reference_image_path)}")
+
+    if not os.path.exists(reference_image_path):
+        return jsonify({"error": "Imagen de referencia no encontrada para el UID proporcionado"}), 404
+
+    try:
+        with open(reference_image_path, 'rb') as ref_file:
+            reference_bytes = ref_file.read()
+    except Exception as e:
+        app.logger.error(f"Error al leer la imagen de referencia: {str(e)}")
+        return jsonify({"error": f"Error al leer la imagen de referencia: {str(e)}"}), 500
+
+    try:
+        response = rekognition_client.compare_faces(
+            SourceImage={'Bytes': reference_bytes},
+            TargetImage={'Bytes': image_bytes},
+            SimilarityThreshold=80
+        )
+        app.logger.info(f"Resultado de comparación: {response}")
+    except Exception as e:
+        app.logger.error(f"Error al llamar a Rekognition: {str(e)}")
+        return jsonify({"error": f"Error al llamar a Rekognition: {str(e)}"}), 500
+
+    face_matches = response.get('FaceMatches', [])
+    if not face_matches:
+        return jsonify({"match": False, "message": "Las imágenes no coinciden."}), 200
+
+    similarity = face_matches[0].get('Similarity', 0)
+    return jsonify({"match": True, "similarity": similarity, "message": "Las imágenes coinciden."}), 200
+
+@app.route('/extract_text', methods=['POST'])
+def extract_text():
+    app.logger.info("Request received for extract_text")
+
+    if 'image' not in request.files:
+        return jsonify({"error": "No se proporcionó una imagen"}), 400
+
+    image_file = request.files['image']
+    image_bytes = image_file.read()
+
+    try:
+        textract_client = boto3.client(
+            'textract',
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name=AWS_REGION
+        )
+
+        response = textract_client.detect_document_text(
+            Document={'Bytes': image_bytes}
+        )
+
+        lines = [
+            block['Text'] for block in response.get('Blocks', [])
+            if block['BlockType'] == 'LINE'
+        ]
+
+        texto_extraido = "\n".join(lines)
+        app.logger.info(f"Texto extraído:\n{texto_extraido}")
+
+        return jsonify({"text": texto_extraido}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error al procesar la imagen con Textract: {str(e)}")
+        return jsonify({"error": f"Error al procesar la imagen con Textract: {str(e)}"}), 500
+        
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
