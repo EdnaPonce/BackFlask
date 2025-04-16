@@ -76,55 +76,58 @@ def get_access_token():
 @app.route('/send-notification', methods=['POST'])
 def send_notification():
     try:
-        data = request.json
-        # Verificar campos básicos que serán siempre obligatorios
+        data = request.json or {}
+        # Campos básicos siempre obligatorios
         required_base = ['deviceToken', 'title', 'body']
-        if not data or any(key not in data for key in required_base):
-            return jsonify({"error": "Datos inválidos"}), 400
+        if any(key not in data for key in required_base):
+            return jsonify({"error": "Faltan campos obligatorios"}), 400
 
         device_token = data['deviceToken']
         title = data['title']
         body = data['body']
 
-        payload = {
-            "message": {
-                "token": device_token,
+        # Construir payload
+        message = {
+            "token": device_token,
+            "notification": {
+                "title": title,
+                "body": body,
+            },
+            "android": {
+                "priority": "HIGH",
                 "notification": {
-                    "title": title,
-                    "body": body,
-                },
-                "android": {
-                    "priority": "HIGH",
-                    "notification": {
-                        "icon": "Procfile",
-                    }
+                    "icon": "Procfile",
                 }
             }
         }
 
-        # Si se incluyen campos adicionales, se añaden al payload
-        if 'uid' in data and 'solicitudId' in data and 'userName' in data:
-            payload["message"]["data"] = {
-                "uid": data['uid'],
-                "solicitudId": data['solicitudId'],
-                "userName": data['userName'],
+        # Si vienen campos adicionales, los añadimos en data
+        extra_keys = ['uid', 'solicitudId', 'userName']
+        if all(key in data for key in extra_keys):
+            message["data"] = {
+                "uid": str(data['uid']),
+                "solicitudId": str(data['solicitudId']),
+                "userName": str(data['userName']),
             }
 
+        payload = {"message": message}
+        print("Payload FCM:", json.dumps(payload, indent=2))
+
+        # Llamada a FCM
+        project_id = "empleame-a691c"
+        url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
         headers = {
             "Authorization": f"Bearer {get_access_token()}",
             "Content-Type": "application/json",
         }
 
-        project_id = "empleame-a691c"
-        url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
-
         response = requests.post(url, headers=headers, json=payload)
-
         if response.status_code == 200:
             return jsonify({"success": True, "message": "Notificación enviada correctamente"}), 200
         else:
             print("FCM error:", response.status_code, response.text)
             return jsonify({"success": False, "error": response.json()}), response.status_code
+
     except Exception as e:
         print("Error en /send-notification:", str(e))
         return jsonify({"error": str(e)}), 500
