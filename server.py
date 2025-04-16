@@ -77,7 +77,9 @@ def get_access_token():
 def send_notification():
     try:
         data = request.json
-        if not data or 'deviceToken' not in data or 'title' not in data or 'body' not in data:
+        # Verificar campos básicos que serán siempre obligatorios
+        required_base = ['deviceToken', 'title', 'body']
+        if not data or any(key not in data for key in required_base):
             return jsonify({"error": "Datos inválidos"}), 400
 
         device_token = data['deviceToken']
@@ -100,6 +102,14 @@ def send_notification():
             }
         }
 
+        # Si se incluyen campos adicionales, se añaden al payload
+        if 'uid' in data and 'solicitudId' in data and 'userName' in data:
+            payload["message"]["data"] = {
+                "uid": data['uid'],
+                "solicitudId": data['solicitudId'],
+                "userName": data['userName'],
+            }
+
         headers = {
             "Authorization": f"Bearer {get_access_token()}",
             "Content-Type": "application/json",
@@ -118,6 +128,7 @@ def send_notification():
     except Exception as e:
         print("Error en /send-notification:", str(e))
         return jsonify({"error": str(e)}), 500
+
 
 # ====================== IDENTIFICAR SERVICIO ======================
 
