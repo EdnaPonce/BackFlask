@@ -212,48 +212,65 @@ def ensure_collection_exists():
             app.logger.info(f"La colección {COLLECTION_ID} ya existe")
     except Exception as e:
         app.logger.error(f"Error al verificar/crear colección: {e}")
-
 @app.route('/add_reference_face', methods=['POST'])
 def add_reference_face():
     app.logger.info("Request received for add_reference_face")
-    app.logger.info(f"Form data: {request.form}")
-    app.logger.info(f"Files: {request.files}")
-
     if 'image' not in request.files:
         return jsonify({"error": "No se proporcionó una imagen"}), 400
     if 'uid' not in request.form:
         return jsonify({"error": "UID no proporcionado"}), 400
 
     uid = request.form['uid']
-    if not uid:
+    if not uid.strip():
         return jsonify({"error": "El UID no puede estar vacío"}), 400
 
-    # ── NUEVA VALIDACIÓN: solo una referencia por usuario ──────────────────────
-    reference_image_path = os.path.join(REFERENCE_FOLDER, f"{uid}.jpg")
-    if os.path.exists(reference_image_path):
-        return jsonify({"error": "Ya existe una referencia facial para este usuario. "
-                                 "No puedes registrar más de un perfil."}), 409
-    # ───────────────────────────────────────────────────────────────────────────
+    # ── 1) ¿YA EXISTE UNA CARA CON ESTE uid? ────────────────────────────────
+    try:
+        # list_faces no permite filtrar, así que paginamos y buscamos
+        paginator = rekognition_client.get_paginator("list_faces")
+        for page in paginator.paginate(CollectionId=COLLECTION_ID):
+            if any(face.get("ExternalImageId") == uid for face in page["Faces"]):
+                return jsonify({
+                    "error": "Ya hay una referencia facial registrada para este usuario. "
+                             "No se pueden registrar más perfiles."
+                }), 409
+    except Exception as e:
+        app.logger.error(f"Error al consultar Rekognition: {e}")
+        return jsonify({"error": f"Error al consultar Rekognition: {e}"}), 500
+    # ────────────────────────────────────────────────────────────────────────
 
+    # 2) Guardar la imagen temporalmente
     image_file = request.files['image']
-
+    reference_image_path = os.path.join(REFERENCE_FOLDER, f"{uid}.jpg")
     try:
         image_file.save(reference_image_path)
-        app.logger.info(f"Imagen de referencia guardada en: {reference_image_path}")
-
-        with open(reference_image_path, 'rb') as image:
-            response = rekognition_client.index_faces(
-                CollectionId=COLLECTION_ID,
-                Image={'Bytes': image.read()},
-                ExternalImageId=uid,
-                DetectionAttributes=['ALL']
-            )
-            app.logger.info(f"Cara indexada en Rekognition: {response}")
     except Exception as e:
-        app.logger.error(f"Error al guardar/indexar la imagen: {str(e)}")
-        return jsonify({"error": f"Error al procesar la imagen: {str(e)}"}), 500
+        app.logger.error(f"Error al guardar la imagen: {e}")
+        return jsonify({"error": f"Error al guardar la imagen: {e}"}), 500
+
+    # 3) Indexar en Rekognition
+    try:
+        with open(reference_image_path, 'rb') as img:
+            rekognition_client.index_faces(
+                CollectionId=COLLECTION_ID,
+                Image={'Bytes': img.read()},
+                ExternalImageId=uid,
+                DetectionAttributes=['DEFAULT']
+            )
+    except Exception as e:
+        app.logger.error(f"Error al indexar la cara: {e}")
+        return jsonify({"error": f"Error al indexar la cara: {e}"}), 500
+
+    # 4) (Optativo) guarda en Firestore que ya tiene referencia
+    try:
+        firestore_client.collection('trabajadores').document(uid).set(
+            {"referenceAdded": True, "etapaRegistro": "ID_PENDING"}, merge=True
+        )
+    except Exception as e:
+        app.logger.warning(f"No se pudo actualizar Firestore: {e}")
 
     return jsonify({"message": "Imagen de referencia guardada exitosamente", "uid": uid}), 200
+
 
 @app.route('/compare_face', methods=['POST'])
 def compare_face():
