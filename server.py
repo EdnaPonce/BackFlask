@@ -218,7 +218,7 @@ def add_reference_face():
     app.logger.info("Request received for add_reference_face")
     app.logger.info(f"Form data: {request.form}")
     app.logger.info(f"Files: {request.files}")
-    
+
     if 'image' not in request.files:
         return jsonify({"error": "No se proporcionó una imagen"}), 400
     if 'uid' not in request.form:
@@ -228,13 +228,19 @@ def add_reference_face():
     if not uid:
         return jsonify({"error": "El UID no puede estar vacío"}), 400
 
-    image_file = request.files['image']
+    # ── NUEVA VALIDACIÓN: solo una referencia por usuario ──────────────────────
     reference_image_path = os.path.join(REFERENCE_FOLDER, f"{uid}.jpg")
+    if os.path.exists(reference_image_path):
+        return jsonify({"error": "Ya existe una referencia facial para este usuario. "
+                                 "No puedes registrar más de un perfil."}), 409
+    # ───────────────────────────────────────────────────────────────────────────
+
+    image_file = request.files['image']
 
     try:
         image_file.save(reference_image_path)
         app.logger.info(f"Imagen de referencia guardada en: {reference_image_path}")
-        
+
         with open(reference_image_path, 'rb') as image:
             response = rekognition_client.index_faces(
                 CollectionId=COLLECTION_ID,
