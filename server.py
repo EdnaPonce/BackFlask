@@ -73,63 +73,75 @@ def get_access_token():
     credentials.refresh(Request())
     return credentials.token
 
-@app.route('/send-notification', methods=['POST'])
+@app.route("/send-notification", methods=["POST"])
 def send_notification():
     try:
         data = request.json or {}
-        # Campos básicos siempre obligatorios
-        required_base = ['deviceToken', 'title', 'body']
+
+        # --- 1) Validación de campos obligatorios ---------------------------
+        required_base = ["deviceToken", "title", "body"]
         if any(key not in data for key in required_base):
             return jsonify({"error": "Faltan campos obligatorios"}), 400
 
-        device_token = data['deviceToken']
-        title = data['title']
-        body = data['body']
+        device_token = data["deviceToken"]
+        title        = data["title"]
+        body         = data["body"]
 
-        # Construir payload
+        # --- 2) Construir el mensaje FCM ------------------------------------
         message = {
             "token": device_token,
             "notification": {
                 "title": title,
-                "body": body,
+                "body":  body,
+                # <- esto es lo que hace que el toque abra tu app
+                "click_action": "FLUTTER_NOTIFICATION_CLICK",
             },
             "android": {
                 "priority": "HIGH",
                 "notification": {
                     "icon": "Procfile",
-                }
-            }
+                    # puedes declarar channel_id aquí si usas canales
+                },
+            },
         }
 
-        # Si vienen campos adicionales, los añadimos en data
-        extra_keys = ['uid', 'solicitudId', 'userName']
-        if all(key in data for key in extra_keys):
-            message["data"] = {
-                "uid": str(data['uid']),
-                "solicitudId": str(data['solicitudId']),
-                "userName": str(data['userName']),
-            }
+        # --- 3) Agregar data opcional (uid, solicitudId, userName, route) ---
+        data_fields = {}
+        for key in ("uid", "solicitudId", "userName", "route"):
+            if key in data:
+                data_fields[key] = str(data[key])
+
+        if data_fields:
+            message["data"] = data_fields
 
         payload = {"message": message}
-        print("Payload FCM:", json.dumps(payload, indent=2))
+        print("Payload FCM:\n", json.dumps(payload, indent=2))
 
-        # Llamada a FCM
+        # --- 4) Enviar a la API de FCM v1 -----------------------------------
         project_id = "empleame-a691c"
-        url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
-        headers = {
+        url        = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
+        headers    = {
             "Authorization": f"Bearer {get_access_token()}",
-            "Content-Type": "application/json",
+            "Content-Type":  "application/json",
         }
 
         response = requests.post(url, headers=headers, json=payload)
-        if response.status_code == 200:
-            return jsonify({"success": True, "message": "Notificación enviada correctamente"}), 200
-        else:
-            print("FCM error:", response.status_code, response.text)
-            return jsonify({"success": False, "error": response.json()}), response.status_code
+
+        if response.ok:
+            return jsonify({
+                "success": True,
+                "message": "Notificación enviada correctamente"
+            }), 200
+
+        # Si FCM devolvió error:
+        print("FCM error:", response.status_code, response.text)
+        return jsonify({
+            "success": False,
+            "error": response.json()
+        }), response.status_code
 
     except Exception as e:
-        print("Error en /send-notification:", str(e))
+        print("Error en /send-notification:", e)
         return jsonify({"error": str(e)}), 500
 
 
