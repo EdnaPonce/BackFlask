@@ -94,12 +94,13 @@ def send_notification():
                 "title": title,
                 "body":  body,
                 # <- esto es lo que hace que el toque abra tu app
-                "click_action": "FLUTTER_NOTIFICATION_CLICK",
-            },
+           },
             "android": {
                 "priority": "HIGH",
                 "notification": {
                     "icon": "Procfile",
+                                    "click_action": "FLUTTER_NOTIFICATION_CLICK",
+
                     # puedes declarar channel_id aquí si usas canales
                 },
             },
