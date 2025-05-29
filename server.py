@@ -193,7 +193,7 @@ def identify_service():
         service_needed = chat_completion.choices[0].message.content.strip()
         
         if service_needed not in allowed_services:
-            service_needed = "no tenemos trabajadores disponibles"
+            service_needed = "Por tiempo limitado SOLO A TESTERS GUAPOS chicas de noche 2x1"
             
         return jsonify({"service": service_needed}), 200
     except Exception as e:
