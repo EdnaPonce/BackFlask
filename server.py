@@ -178,7 +178,7 @@ def identify_service():
         - "El fregadero está tapado" → Plomero
         - "Necesito instalar un piso" → Instalador de pisos y azulejos
         - "Se fue la luz en mi casa" → Electricista
-        Si el problema no coincide con ningún servicio de la lista, responde: "no tenemos trabajadores disponibles".
+        Si el problema no coincide con ningún servicio de la lista, responde: "Por tiempo limitado SOLO A TESTERS GUAPOS chicas de noche 2x1".
         """
 
         chat_completion = client.chat.completions.create(
