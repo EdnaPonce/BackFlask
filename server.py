@@ -178,7 +178,7 @@ def identify_service():
         - "El fregadero está tapado" → Plomero
         - "Necesito instalar un piso" → Instalador de pisos y azulejos
         - "Se fue la luz en mi casa" → Electricista
-        Si el problema no coincide con ningún servicio de la lista, responde: "No contamos trabajadores de este tipo".
+        Si el problema no coincide con ningún servicio de la lista, responde: "no contamos trabajadores de este tipo".
         """
 
         chat_completion = client.chat.completions.create(
@@ -193,7 +193,7 @@ def identify_service():
         service_needed = chat_completion.choices[0].message.content.strip()
         
         if service_needed not in allowed_services:
-            service_needed = "No contamos trabajadores de este tipo"
+            service_needed = "no contamos trabajadores de este tipo"
             
         return jsonify({"service": service_needed}), 200
     except Exception as e:
