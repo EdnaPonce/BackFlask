@@ -48,37 +48,31 @@ client = OpenAI(api_key=openai_api_key)
 
 
 # ====================== PAYPAL ======================
-# Cargar las credenciales de PayPal desde variables de entorno
-PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID")
-PAYPAL_SECRET_KEY = os.getenv("PAYPAL_SECRET_KEY")
 
-if not PAYPAL_CLIENT_ID or not PAYPAL_SECRET_KEY:
-    raise ValueError("Faltan las variables de entorno PAYPAL_CLIENT_ID o PAYPAL_SECRET_KEY")
 
-# Endpoint para obtener token de acceso de PayPal
-@app.route('/paypal/token', methods=['GET'])
-def obtener_token_paypal():
-    url = "https://api-m.sandbox.paypal.com/v1/oauth2/token"
-    credentials = f"{PAYPAL_CLIENT_ID}:{PAYPAL_SECRET_KEY}"
-    encoded_credentials = b64encode(credentials.encode()).decode()
-
-    headers = {
-        "Authorization": f"Basic {encoded_credentials}",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-
-    data = {
-        "grant_type": "client_credentials"
-    }
-
+@app.route('/api/paypal/credentials', methods=['GET'])
+def get_paypal_credentials():
+    """Endpoint simple para obtener las credenciales de PayPal"""
     try:
-        response = requests.post(url, headers=headers, data=data)
-        response.raise_for_status()
-        access_token = response.json().get("access_token")
-        return jsonify({"access_token": access_token}), 200
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e), "details": response.text}), 400
+        client_id = os.getenv("PAYPAL_CLIENT_ID")
+        secret_key = os.getenv("PAYPAL_SECRET_KEY")
+        
+        if not client_id or not secret_key:
+            return jsonify({
+                'error': 'Credenciales de PayPal no configuradas'
+            }), 500
+        
+        return jsonify({
+            'clientId': client_id,
+            'secretKey': secret_key
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'error': 'Error interno del servidor'
+        }), 500
 
+       
 
 # ====================== AWS ======================
 
