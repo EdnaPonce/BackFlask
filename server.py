@@ -94,11 +94,15 @@ os.makedirs(REFERENCE_FOLDER, exist_ok=True)
 # ID de la colección de rostros
 COLLECTION_ID = "face_auth_collection"
 # ====================== FCM ======================
+# ====================== FCM ======================
 
 SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"]
 
 def get_access_token():
-    credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_PATH, scopes=SCOPES)
+    credentials = Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_PATH,
+        scopes=SCOPES
+    )
     credentials.refresh(Request())
     return credentials.token
 
@@ -108,51 +112,53 @@ def send_notification():
         data = request.json or {}
 
         # --- 1) Validación de campos obligatorios ---------------------------
-        required_base = ["deviceToken", "title", "body"]
-        if any(key not in data for key in required_base):
+        required_base = ("deviceToken", "title", "body")
+        if any(k not in data for k in required_base):
             return jsonify({"error": "Faltan campos obligatorios"}), 400
 
         device_token = data["deviceToken"]
         title        = data["title"]
         body         = data["body"]
 
-        # --- 2) Construir el mensaje FCM ------------------------------------
+        # --- 2) Construir el mensaje FCM -----------------------------------
         message = {
             "token": device_token,
             "notification": {
                 "title": title,
-                "body":  body,
-                # <- esto es lo que hace que el toque abra tu app
-           },
-            "android": {
-                "priority": "HIGH",
-                "notification": {
-                    "icon": "Procfile",
-                                    "click_action": "FLUTTER_NOTIFICATION_CLICK",
-
-                    # puedes declarar channel_id aquí si usas canales
-                },
+                "body" : body
             },
+            "android": {
+                "priority": "high",
+                "notification": {
+                    "icon": "ic_launcher",    # ### MOD: usa tu ícono de notificación
+                    "channel_id": "default"   # ### MOD: canal por defecto
+                    # ### MOD: sin click_action para que no navegue automáticamente
+                }
+            }
+            # Puedes agregar configuración iOS si la necesitas
         }
 
-        # --- 3) Agregar data opcional (uid, solicitudId, userName, route) ---
+        # --- 3) Data opcional (uid, solicitudId, userName) ------------------
         data_fields = {}
-        for key in ("uid", "solicitudId", "userName", "route"):
+        for key in ("uid", "solicitudId", "userName"):
             if key in data:
                 data_fields[key] = str(data[key])
+
+        # Flag neutra para filtrar dentro de Flutter
+        data_fields.setdefault("tipo", "nueva_solicitud")  # ### MOD
 
         if data_fields:
             message["data"] = data_fields
 
         payload = {"message": message}
-        print("Payload FCM:\n", json.dumps(payload, indent=2))
+        print("Payload FCM:\n", json.dumps(payload, indent=2, ensure_ascii=False))
 
         # --- 4) Enviar a la API de FCM v1 -----------------------------------
         project_id = "empleame-a691c"
-        url        = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
-        headers    = {
+        url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
+        headers = {
             "Authorization": f"Bearer {get_access_token()}",
-            "Content-Type":  "application/json",
+            "Content-Type": "application/json"
         }
 
         response = requests.post(url, headers=headers, json=payload)
@@ -173,6 +179,7 @@ def send_notification():
     except Exception as e:
         print("Error en /send-notification:", e)
         return jsonify({"error": str(e)}), 500
+
 
 
 # ====================== IDENTIFICAR SERVICIO ======================
